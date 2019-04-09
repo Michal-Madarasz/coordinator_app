@@ -1,8 +1,8 @@
 package com.example.coordinator_app;
 
-import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
@@ -20,8 +20,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Random;
+
+import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.*;
 
 /*
@@ -33,6 +39,31 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<Victim> victims = new ArrayList<>();
     CustomAdapter customAdapter;
     String[] triageSystems;
+    String serviceID = "com.example.coordinator_app";
+    ConnectionLifecycleCallback communicationCallbacks;
+    PayloadCallback payloadReciever = new PayloadCallback() {
+        @Override
+        public void onPayloadReceived(String s, Payload payload) {
+            try {
+                ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
+                ObjectInputStream is = new ObjectInputStream(bis);
+                Victim v = (Victim) is.readObject();
+                victims.add(v);
+                updateVictimsData();
+                customAdapter.notifyDataSetChanged();
+
+            } catch (IOException e){
+                Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT ).show();
+            } catch (ClassNotFoundException e) {
+                Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        @Override
+        public void onPayloadTransferUpdate(String s, PayloadTransferUpdate payloadTransferUpdate) {
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,11 +83,9 @@ public class MainActivity extends AppCompatActivity {
         imgV = findViewById(R.id.total_yellow).findViewById(R.id.label); imgV.setImageResource(R.color.colorTriageYellow);
         imgV = findViewById(R.id.total_green).findViewById(R.id.label); imgV.setImageResource(R.color.colorTriageGreen);
 
-        BluetoothAdapter ab;
-
         //wypełnienie menu wyboru systemu do triage
         Spinner dropdown = findViewById(R.id.classification_system_choice);
-        triageSystems = new String[]{"START/JumpSTART", "system2", "system3", "system4"};
+        triageSystems = new String[]{"START/JumpSTART", "TRTS", "ISS", "BTTR"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, triageSystems);
         dropdown.setAdapter(adapter); dropdown.getSelectedItem().toString();
 
@@ -83,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(getApplicationContext(), VictimDetailsActivity.class);
-                intent.putExtra("victim", victims.get(position)); //sending victim data to new activity
+                intent.putExtra("victim", (Parcelable) victims.get(position)); //sending victim data to new activity
                 startActivity(intent);
             }
         });
@@ -103,6 +132,35 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        communicationCallbacks = new ConnectionLifecycleCallback() {
+            @Override
+            public void onConnectionInitiated(String s, ConnectionInfo connectionInfo) {
+                Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(s, payloadReciever);
+            }
+
+            @Override
+            public void onConnectionResult(String s, ConnectionResolution connectionResolution) {
+                switch (connectionResolution.getStatus().getStatusCode()) {
+                    case ConnectionsStatusCodes.STATUS_OK:
+                        // We're connected! Can now start sending and receiving data.
+                        break;
+                    case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
+                        // The connection was rejected by one or both sides.
+                        break;
+                    case ConnectionsStatusCodes.STATUS_ERROR:
+                        // The connection broke before it was able to be accepted.
+                        break;
+                    default:
+                        // Unknown status code
+                }
+            }
+
+            @Override
+            public void onDisconnected(String s) {
+
+            }
+        };
     }
 
     @Override
@@ -138,6 +196,20 @@ public class MainActivity extends AppCompatActivity {
 
         return super.onOptionsItemSelected(item);
     }
+
+    private void onAdvertisingFailureListener(Exception e){
+
+    }
+
+    private void startAdvertising() {
+        AdvertisingOptions advertisingOptions =
+                new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
+        Nearby.getConnectionsClient(getApplicationContext())
+                .startAdvertising(
+                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions);
+    }
+
+
 
     public void updateVictimsData(){
         int b=0, r=0, y=0, g=0;
