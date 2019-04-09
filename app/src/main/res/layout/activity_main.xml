@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.design.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <android.support.design.widget.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/AppTheme.AppBarOverlay">
+
+        <android.support.v7.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorPrimary"
+            app:popupTheme="@style/AppTheme.PopupOverlay" />
+
+    </android.support.design.widget.AppBarLayout>
+
+
+    <ViewFlipper
+        android:id="@+id/layout_manager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <include
+            android:id="@+id/include_main"
+            layout="@layout/dashboard_content_main" />
+
+        <include
+            android:id="@+id/include_bt"
+            layout="@layout/bt_content_main" />
+
+        <include
+            android:id="@+id/include_victim"
+            layout="@layout/victim_content_main" />
+
+        <include
+            android:id="@+id/include_rescuers"
+            layout="@layout/rescuers_content_main" />
+
+
+    </ViewFlipper>
+    <!--
+    <include
+        android:id="@+id/displayed_layout"
+        layout="@layout/dashboard_content_main" /> -->
+
+</android.support.design.widget.CoordinatorLayout>

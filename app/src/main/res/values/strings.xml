@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Triage</string>
+    <string name="action_dashboard">Panel główny</string>
+    <string name="action_bt">Ust. Bluetooth</string>
+    <string name="action_victims">Poszkodowani</string>
+    <string name="action_rescuers">Ratownicy</string>
+
+</resources>

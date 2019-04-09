@@ -1,0 +1,27 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.example.coordinator_app.MainActivity">
+    <item
+        android:id="@+id/action_main"
+        android:orderInCategory="1"
+        android:title="@string/action_dashboard"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_bt"
+        android:orderInCategory="2"
+        android:title="@string/action_bt"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_victims"
+        android:orderInCategory="3"
+        android:title="@string/action_victims" />
+
+    <item
+        android:id="@+id/action_rescuers"
+        android:orderInCategory="4"
+        android:visible="false"
+        android:title="@string/action_rescuers" />
+
+
+</menu>
