@@ -45,13 +45,20 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
             try {
+                if(payload.asBytes().toString().equals("Send Nudes")){
+                    TextView t = findViewById(R.id.classification_system_val);
+                    String class_system = t.getText().toString();
+                    Payload p = Payload.fromBytes(class_system.getBytes());
+                    Nearby.getConnectionsClient(getApplicationContext()).sendPayload(s, p);
+                    return;
+                }
+
                 ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
                 ObjectInputStream is = new ObjectInputStream(bis);
                 Victim v = (Victim) is.readObject();
                 victims.add(v);
                 updateVictimsData();
                 customAdapter.notifyDataSetChanged();
-
             } catch (IOException e){
                 Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT ).show();
             } catch (ClassNotFoundException e) {
@@ -72,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        //Victim v = new Victim(1L, true, 48, 1.5f, false, Victim.AVPU.VERBAL);
+        //victims.add(v);
         final ListView victimList = findViewById(R.id.victim_list);
         customAdapter = new CustomAdapter(getApplicationContext(), victims);
         victimList.setAdapter(customAdapter);
@@ -195,10 +204,6 @@ public class MainActivity extends AppCompatActivity {
 
 
         return super.onOptionsItemSelected(item);
-    }
-
-    private void onAdvertisingFailureListener(Exception e){
-
     }
 
     private void startAdvertising() {
