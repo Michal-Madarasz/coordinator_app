@@ -1,10 +1,16 @@
 package com.example.coordinator_app;
 
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutCompat;
 import android.support.v7.widget.Toolbar;
@@ -36,6 +42,18 @@ TODO: obsługa bluetooth
  */
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final String[] REQUIRED_PERMISSIONS =
+            new String[] {
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.BLUETOOTH_ADMIN,
+                    Manifest.permission.ACCESS_WIFI_STATE,
+                    Manifest.permission.CHANGE_WIFI_STATE,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+            };
+
+    private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
+
 
     ArrayList<Victim> victims = new ArrayList<>();
     CustomAdapter customAdapter;
@@ -163,7 +181,6 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        startAdvertising();
     }
 
     @Override
@@ -221,8 +238,36 @@ public class MainActivity extends AppCompatActivity {
                         });
     }
 
+    /** Called when our Activity has been made visible to the user. */
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!hasPermissions(this, getRequiredPermissions())) {
+            if (!hasPermissions(this, getRequiredPermissions())) {
+                if (Build.VERSION.SDK_INT < 23) {
+                    ActivityCompat.requestPermissions(
+                            this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                } else {
+                    requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                }
+            }
+        }
+        startAdvertising();
+    }
 
+    protected String[] getRequiredPermissions() {
+        return REQUIRED_PERMISSIONS;
+    }
 
+    public static boolean hasPermissions(Context context, String... permissions) {
+        for (String permission : permissions) {
+            if (ContextCompat.checkSelfPermission(context, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
     public void updateVictimsData(){
         int b=0, r=0, y=0, g=0;
         for(Victim v : victims){
