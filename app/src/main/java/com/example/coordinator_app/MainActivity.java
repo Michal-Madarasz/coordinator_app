@@ -8,6 +8,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutCompat;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -52,10 +53,8 @@ public class MainActivity extends AppCompatActivity {
                 updateVictimsData();
                 customAdapter.notifyDataSetChanged();
 
-            } catch (IOException e){
-                Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT ).show();
-            } catch (ClassNotFoundException e) {
-                Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT).show();
+            } catch (Exception e){
+                Toast.makeText(getApplicationContext(), "Błąd odbioru danych: "+e.getMessage(), Toast.LENGTH_SHORT ).show();
             }
         }
 
@@ -121,6 +120,8 @@ public class MainActivity extends AppCompatActivity {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                startAdvertising();
+                /*
                 Spinner spnr = findViewById(R.id.classification_system_choice);
                 int id = (int)spnr.getSelectedItemId();
                 switch(id){
@@ -129,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     default:
                         Toast.makeText(getApplicationContext(), "Wybrany system nie jest aktualnie zaimplementowany", Toast.LENGTH_SHORT).show();
-                }
+                }*/
             }
         });
 
@@ -161,6 +162,8 @@ public class MainActivity extends AppCompatActivity {
 
             }
         };
+
+        startAdvertising();
     }
 
     @Override
@@ -197,16 +200,25 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void onAdvertisingFailureListener(Exception e){
-
-    }
-
     private void startAdvertising() {
+        Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT ).show();
         AdvertisingOptions advertisingOptions =
                 new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
-        Nearby.getConnectionsClient(getApplicationContext())
-                .startAdvertising(
-                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions);
+        ConnectionsClient cc = Nearby.getConnectionsClient(getApplicationContext());
+        cc.stopAdvertising();
+        cc.startAdvertising(
+                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions)
+                .addOnSuccessListener(
+                        (Void unused) -> {
+                            Toast.makeText(getApplicationContext(), "Wystartowaliśmy", Toast.LENGTH_SHORT ).show();
+
+                        })
+                .addOnFailureListener(
+                        (Exception e) -> {
+                            // We were unable to start advertising.
+                            Toast.makeText(getApplicationContext(), "Nie Wystartowaliśmy", Toast.LENGTH_SHORT ).show();
+                            Log.e("Nearby Start", e.getMessage());
+                        });
     }
 
 
