@@ -3,9 +3,11 @@ package com.example.coordinator_app;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.io.Serializable;
+
 //klasa reprezentująca poszkodowanego rozszerzona o
 //interfejs pozwalający na przesyłanie obiektu między aktywnościami
-public class Victim implements Parcelable {
+public class Victim implements Parcelable, Serializable {
 
     public enum TriageColor{ BLACK, RED, YELLOW, GREEN }
     public enum AVPU{ AWAKE, VERBAL, PAIN, UNRESPONSIVE }

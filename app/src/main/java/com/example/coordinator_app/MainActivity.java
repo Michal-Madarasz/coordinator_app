@@ -1,13 +1,20 @@
 package com.example.coordinator_app;
 
-import android.bluetooth.BluetoothAdapter;
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutCompat;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -20,8 +27,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Random;
+
+import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.*;
 
 /*
@@ -30,9 +43,44 @@ TODO: obsługa bluetooth
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String[] REQUIRED_PERMISSIONS =
+            new String[] {
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.BLUETOOTH_ADMIN,
+                    Manifest.permission.ACCESS_WIFI_STATE,
+                    Manifest.permission.CHANGE_WIFI_STATE,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+            };
+
+    private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
+
+
     ArrayList<Victim> victims = new ArrayList<>();
     CustomAdapter customAdapter;
     String[] triageSystems;
+    String serviceID = "com.example.coordinator_app";
+    ConnectionLifecycleCallback communicationCallbacks;
+    PayloadCallback payloadReciever = new PayloadCallback() {
+        @Override
+        public void onPayloadReceived(String s, Payload payload) {
+            try {
+                ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
+                ObjectInputStream is = new ObjectInputStream(bis);
+                Victim v = (Victim) is.readObject();
+                victims.add(v);
+                updateVictimsData();
+                customAdapter.notifyDataSetChanged();
+
+            } catch (Exception e){
+                Toast.makeText(getApplicationContext(), "Błąd odbioru danych: "+e.getMessage(), Toast.LENGTH_SHORT ).show();
+            }
+        }
+
+        @Override
+        public void onPayloadTransferUpdate(String s, PayloadTransferUpdate payloadTransferUpdate) {
+
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,11 +100,9 @@ public class MainActivity extends AppCompatActivity {
         imgV = findViewById(R.id.total_yellow).findViewById(R.id.label); imgV.setImageResource(R.color.colorTriageYellow);
         imgV = findViewById(R.id.total_green).findViewById(R.id.label); imgV.setImageResource(R.color.colorTriageGreen);
 
-        BluetoothAdapter ab;
-
         //wypełnienie menu wyboru systemu do triage
         Spinner dropdown = findViewById(R.id.classification_system_choice);
-        triageSystems = new String[]{"START/JumpSTART", "system2", "system3", "system4"};
+        triageSystems = new String[]{"START/JumpSTART", "TRTS", "ISS", "BTTR"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, triageSystems);
         dropdown.setAdapter(adapter); dropdown.getSelectedItem().toString();
 
@@ -83,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(getApplicationContext(), VictimDetailsActivity.class);
-                intent.putExtra("victim", victims.get(position)); //sending victim data to new activity
+                intent.putExtra("victim", (Parcelable) victims.get(position)); //sending victim data to new activity
                 startActivity(intent);
             }
         });
@@ -92,6 +138,8 @@ public class MainActivity extends AppCompatActivity {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                startAdvertising();
+                /*
                 Spinner spnr = findViewById(R.id.classification_system_choice);
                 int id = (int)spnr.getSelectedItemId();
                 switch(id){
@@ -100,9 +148,39 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     default:
                         Toast.makeText(getApplicationContext(), "Wybrany system nie jest aktualnie zaimplementowany", Toast.LENGTH_SHORT).show();
-                }
+                }*/
             }
         });
+
+        communicationCallbacks = new ConnectionLifecycleCallback() {
+            @Override
+            public void onConnectionInitiated(String s, ConnectionInfo connectionInfo) {
+                Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(s, payloadReciever);
+            }
+
+            @Override
+            public void onConnectionResult(String s, ConnectionResolution connectionResolution) {
+                switch (connectionResolution.getStatus().getStatusCode()) {
+                    case ConnectionsStatusCodes.STATUS_OK:
+                        // We're connected! Can now start sending and receiving data.
+                        break;
+                    case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
+                        // The connection was rejected by one or both sides.
+                        break;
+                    case ConnectionsStatusCodes.STATUS_ERROR:
+                        // The connection broke before it was able to be accepted.
+                        break;
+                    default:
+                        // Unknown status code
+                }
+            }
+
+            @Override
+            public void onDisconnected(String s) {
+
+            }
+        };
+
     }
 
     @Override
@@ -139,6 +217,57 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    private void startAdvertising() {
+        Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT ).show();
+        AdvertisingOptions advertisingOptions =
+                new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
+        ConnectionsClient cc = Nearby.getConnectionsClient(getApplicationContext());
+        cc.stopAdvertising();
+        cc.startAdvertising(
+                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions)
+                .addOnSuccessListener(
+                        (Void unused) -> {
+                            Toast.makeText(getApplicationContext(), "Wystartowaliśmy", Toast.LENGTH_SHORT ).show();
+
+                        })
+                .addOnFailureListener(
+                        (Exception e) -> {
+                            // We were unable to start advertising.
+                            Toast.makeText(getApplicationContext(), "Nie Wystartowaliśmy", Toast.LENGTH_SHORT ).show();
+                            Log.e("Nearby Start", e.getMessage());
+                        });
+    }
+
+    /** Called when our Activity has been made visible to the user. */
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!hasPermissions(this, getRequiredPermissions())) {
+            if (!hasPermissions(this, getRequiredPermissions())) {
+                if (Build.VERSION.SDK_INT < 23) {
+                    ActivityCompat.requestPermissions(
+                            this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                } else {
+                    requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                }
+            }
+        }
+        startAdvertising();
+    }
+
+    protected String[] getRequiredPermissions() {
+        return REQUIRED_PERMISSIONS;
+    }
+
+    public static boolean hasPermissions(Context context, String... permissions) {
+        for (String permission : permissions) {
+            if (ContextCompat.checkSelfPermission(context, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
     public void updateVictimsData(){
         int b=0, r=0, y=0, g=0;
         for(Victim v : victims){
