@@ -7,6 +7,8 @@ import android.support.v7.widget.Toolbar;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.triage.model.Victim;
+
 public class VictimDetailsActivity extends AppCompatActivity {
 
     Victim victim;

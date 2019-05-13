@@ -7,6 +7,9 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.triage.model.Victim;
+
 import java.util.ArrayList;
 
 //klasa służąca do wyświetlania obiektów Victim w widoku ListView
