@@ -123,22 +123,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onStart() {
-        super.onStart();
-        if (!hasPermissions(this, getRequiredPermissions())) {
-            if (!hasPermissions(this, getRequiredPermissions())) {
-                if (Build.VERSION.SDK_INT < 23) {
-                    ActivityCompat.requestPermissions(
-                            this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
-                } else {
-                    requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
-                }
-            }
-        }
-        startAdvertising();
-    }
-
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -208,6 +192,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
     }
 
     @Override
@@ -261,7 +246,26 @@ public class MainActivity extends AppCompatActivity {
                         });
     }
 
+    /** Called when our Activity has been made visible to the user. */
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!hasPermissions(this, getRequiredPermissions())) {
+            if (!hasPermissions(this, getRequiredPermissions())) {
+                if (Build.VERSION.SDK_INT < 23) {
+                    ActivityCompat.requestPermissions(
+                            this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                } else {
+                    requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                }
+            }
+        }
+        startAdvertising();
+    }
 
+    protected String[] getRequiredPermissions() {
+        return REQUIRED_PERMISSIONS;
+    }
 
     public void updateVictimsData(){
         int b=0, r=0, y=0, g=0;
@@ -280,10 +284,6 @@ public class MainActivity extends AppCompatActivity {
         t = findViewById(R.id.total_yellow).findViewById(R.id.val); t.setText(y+"");
         t = findViewById(R.id.total_green).findViewById(R.id.val); t.setText(g+"");
 
-    }
-
-    protected String[] getRequiredPermissions() {
-        return REQUIRED_PERMISSIONS;
     }
 
 
