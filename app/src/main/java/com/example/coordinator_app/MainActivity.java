@@ -1,13 +1,18 @@
 package com.example.coordinator_app;
 
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.constraint.ConstraintLayout;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutCompat;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -22,17 +27,13 @@ import android.widget.Toast;
 import android.widget.ViewFlipper;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Random;
 
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.*;
-
-/*
-TODO: obsługa bluetooth
- */
+import com.triage.model.Victim;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -40,16 +41,56 @@ public class MainActivity extends AppCompatActivity {
     CustomAdapter customAdapter;
     String[] triageSystems;
     String serviceID = "com.example.coordinator_app";
-    ConnectionLifecycleCallback communicationCallbacks;
-    PayloadCallback payloadReciever = new PayloadCallback() {
+    ConnectionsClient connectionsClient;
+
+    private static final String[] REQUIRED_PERMISSIONS =
+            new String[]{
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.BLUETOOTH_ADMIN,
+                    Manifest.permission.ACCESS_WIFI_STATE,
+                    Manifest.permission.CHANGE_WIFI_STATE,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+            };
+    private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
+
+    ConnectionLifecycleCallback communicationCallbacks = new ConnectionLifecycleCallback() {
+        @Override
+        public void onConnectionInitiated(String s, ConnectionInfo connectionInfo) {
+            connectionsClient.acceptConnection(s, payloadReceiver);
+            Toast.makeText(getApplicationContext(), "Wykryto "+s, Toast.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void onConnectionResult(String s, ConnectionResolution connectionResolution) {
+            switch (connectionResolution.getStatus().getStatusCode()) {
+                case ConnectionsStatusCodes.STATUS_OK:
+                    // We're connected! Can now start sending and receiving data.
+                    break;
+                case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
+                    // The connection was rejected by one or both sides.
+                    break;
+                case ConnectionsStatusCodes.STATUS_ERROR:
+                    // The connection broke before it was able to be accepted.
+                    break;
+                default:
+                    // Unknown status code
+            }
+        }
+
+        @Override
+        public void onDisconnected(String s) {
+            //Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+        }
+    };
+    PayloadCallback payloadReceiver = new PayloadCallback() {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
             try {
                 if(payload.asBytes().toString().equals("Send Nudes")){
                     TextView t = findViewById(R.id.classification_system_val);
-                    String class_system = t.getText().toString();
-                    Payload p = Payload.fromBytes(class_system.getBytes());
-                    Nearby.getConnectionsClient(getApplicationContext()).sendPayload(s, p);
+                    String classSystem = t.getText().toString();
+                    Payload p = Payload.fromBytes(classSystem.getBytes());
+                    connectionsClient.sendPayload(s, p);
                     return;
                 }
 
@@ -59,10 +100,9 @@ public class MainActivity extends AppCompatActivity {
                 victims.add(v);
                 updateVictimsData();
                 customAdapter.notifyDataSetChanged();
-            } catch (IOException e){
+            } catch (Exception e){
                 Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT ).show();
-            } catch (ClassNotFoundException e) {
-                Toast.makeText(getApplicationContext(), "Błąd odbioru informacji o poszkodowanym", Toast.LENGTH_SHORT).show();
+                Log.e("TAG", e.getMessage());
             }
         }
 
@@ -71,6 +111,32 @@ public class MainActivity extends AppCompatActivity {
 
         }
     };
+
+    public static boolean hasPermissions(Context context, String... permissions) {
+        for (String permission : permissions) {
+            if (ContextCompat.checkSelfPermission(context, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!hasPermissions(this, getRequiredPermissions())) {
+            if (!hasPermissions(this, getRequiredPermissions())) {
+                if (Build.VERSION.SDK_INT < 23) {
+                    ActivityCompat.requestPermissions(
+                            this, getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                } else {
+                    requestPermissions(getRequiredPermissions(), REQUEST_CODE_REQUIRED_PERMISSIONS);
+                }
+            }
+        }
+        startAdvertising();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -142,34 +208,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        communicationCallbacks = new ConnectionLifecycleCallback() {
-            @Override
-            public void onConnectionInitiated(String s, ConnectionInfo connectionInfo) {
-                Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(s, payloadReciever);
-            }
-
-            @Override
-            public void onConnectionResult(String s, ConnectionResolution connectionResolution) {
-                switch (connectionResolution.getStatus().getStatusCode()) {
-                    case ConnectionsStatusCodes.STATUS_OK:
-                        // We're connected! Can now start sending and receiving data.
-                        break;
-                    case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
-                        // The connection was rejected by one or both sides.
-                        break;
-                    case ConnectionsStatusCodes.STATUS_ERROR:
-                        // The connection broke before it was able to be accepted.
-                        break;
-                    default:
-                        // Unknown status code
-                }
-            }
-
-            @Override
-            public void onDisconnected(String s) {
-
-            }
-        };
     }
 
     @Override
@@ -187,7 +225,6 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         ViewFlipper vf = findViewById(R.id.layout_manager);
-        //noinspection SimplifiableIfStatement
         switch(id){
             case R.id.action_bt:
                 vf.setDisplayedChild(1);
@@ -207,11 +244,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startAdvertising() {
+        //Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT).show();
         AdvertisingOptions advertisingOptions =
                 new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
-        Nearby.getConnectionsClient(getApplicationContext())
-                .startAdvertising(
-                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions);
+        connectionsClient = Nearby.getConnectionsClient(getApplicationContext());
+        connectionsClient.startAdvertising(
+                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions)
+                .addOnSuccessListener(
+                        (Void unused) -> {
+                            Toast.makeText(getApplicationContext(), "Startujemy nadawanie", Toast.LENGTH_SHORT).show();
+                        })
+                .addOnFailureListener(
+                        (Exception e) -> {
+                            Toast.makeText(getApplicationContext(), "Nie wystartowano nadawania", Toast.LENGTH_SHORT).show();
+                            Log.e("TAG", e.getMessage());
+                        });
     }
 
 
@@ -234,4 +281,10 @@ public class MainActivity extends AppCompatActivity {
         t = findViewById(R.id.total_green).findViewById(R.id.val); t.setText(g+"");
 
     }
+
+    protected String[] getRequiredPermissions() {
+        return REQUIRED_PERMISSIONS;
+    }
+
+
 }
