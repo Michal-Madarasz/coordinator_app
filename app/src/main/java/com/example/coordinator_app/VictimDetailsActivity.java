@@ -26,7 +26,7 @@ public class VictimDetailsActivity extends AppCompatActivity {
 
         TextView t;
         t = findViewById(R.id.IMEI_val);
-        t.setText(String.format("%015d", victim.getTransmitterIMEI()));
+        t.setText(String.format("%015d", victim.getId()));
 
         t = findViewById(R.id.breath_val);
         if(victim.isBreathing())
