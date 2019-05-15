@@ -47,7 +47,7 @@ public class CustomAdapter extends BaseAdapter {
         view = inflater.inflate(R.layout.victim_activity_listview, null);
         TextView imei = (TextView) view.findViewById(R.id.textView);
         ImageView icon = (ImageView) view.findViewById(R.id.icon);
-        imei.setText("IMEI: "+String.format("%015d", victimList.get(i).getValue2().getId()));
+        imei.setText("IMEI: "+String.format("%s", victimList.get(i).getValue0()));
         switch(victimList.get(i).getValue2().getColor()){
             case BLACK: icon.setImageResource(R.color.colorTriageBlack); break;
             case RED: icon.setImageResource(R.color.colorTriageRed); break;

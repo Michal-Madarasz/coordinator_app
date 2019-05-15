@@ -46,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
     String[] triageSystems;
     final String SERVICE_ID = "triage.simulator-rescuer";
     ConnectionsClient connectionsClient;
+    private boolean advertising = false;
 
     private static final String[] REQUIRED_PERMISSIONS =
             new String[]{
@@ -103,9 +104,12 @@ public class MainActivity extends AppCompatActivity {
                 ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
                 ObjectInputStream is = new ObjectInputStream(bis);
                 Triplet<String, Rescuer, Victim> data = (Triplet<String, Rescuer, Victim>) is.readObject();
+                data.getValue2().calculateColor();
                 for(Triplet<String, Rescuer, Victim> row : victims){
                     if(row.getValue0().equals(data.getValue0())){
-                        row.setAt2(data.getValue2());
+                        Triplet<String, Rescuer, Victim> newRow = row.setAt2(data.getValue2());
+                        victims.remove(row);
+                        victims.add(newRow);
                         updateVictimsData();
                         customAdapter.notifyDataSetChanged();
                         return;
@@ -208,7 +212,32 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        TextView t = findViewById(R.id.reset_transmitter);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(advertising){
+                    Nearby.getConnectionsClient(getApplicationContext()).stopAdvertising();
+                }
+                startAdvertising();
+                updateSettings();
+            }
+        });
 
+        t = findViewById(R.id.clear_endpoints);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
+            }
+        });
+
+    }
+
+
+    public void updateSettings(){
+        TextView t = findViewById(R.id.transmitter_status_label);
+        t.setText( advertising ? "czeka na połączenia" : "bezczynny");
     }
 
     @Override
@@ -227,14 +256,11 @@ public class MainActivity extends AppCompatActivity {
 
         ViewFlipper vf = findViewById(R.id.layout_manager);
         switch(id){
-            case R.id.action_bt:
+            case R.id.action_victims:
                 vf.setDisplayedChild(1);
                 return true;
-            case R.id.action_victims:
+            case R.id.action_settings:
                 vf.setDisplayedChild(2);
-                return true;
-            case R.id.action_rescuers:
-                vf.setDisplayedChild(3);
                 return true;
             default:
                 vf.setDisplayedChild(0);
@@ -254,6 +280,7 @@ public class MainActivity extends AppCompatActivity {
                 .addOnSuccessListener(
                         (Void unused) -> {
                             Toast.makeText(getApplicationContext(), "Startujemy nadawanie", Toast.LENGTH_SHORT).show();
+                            advertising = true;
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
@@ -262,7 +289,6 @@ public class MainActivity extends AppCompatActivity {
                         });
     }
 
-    /** Called when our Activity has been made visible to the user. */
     @Override
     protected void onStart() {
         super.onStart();
