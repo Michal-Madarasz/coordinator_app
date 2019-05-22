@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Parcelable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
@@ -27,9 +28,14 @@ import android.widget.Toast;
 import android.widget.ViewFlipper;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Random;
 
 import com.google.android.gms.nearby.Nearby;
@@ -45,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     CustomAdapter customAdapter;
     String[] triageSystems;
     final String SERVICE_ID = "triage.simulator-rescuer";
+    String log_filename;
     ConnectionsClient connectionsClient;
     private boolean advertising = false;
 
@@ -55,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
                     Manifest.permission.ACCESS_WIFI_STATE,
                     Manifest.permission.CHANGE_WIFI_STATE,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
             };
     private static final int REQUEST_CODE_REQUIRED_PERMISSIONS = 1;
 
@@ -70,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
             switch (connectionResolution.getStatus().getStatusCode()) {
                 case ConnectionsStatusCodes.STATUS_OK:
                     // We're connected! Can now start sending and receiving data.
+
                     break;
                 case ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED:
                     // The connection was rejected by one or both sides.
@@ -90,17 +99,24 @@ public class MainActivity extends AppCompatActivity {
     PayloadCallback payloadReceiver = new PayloadCallback() {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
-            try {
-                /*
-                if(payload.asBytes().toString().equals("Send Nudes")){
-                    TextView t = findViewById(R.id.classification_system_val);
-                    String classSystem = t.getText().toString();
-                    Payload p = Payload.fromBytes(classSystem.getBytes());
-                    connectionsClient.sendPayload(s, p);
-                    return;
-                }*/
+            try {//próba interpretacji jako połączenie od ratownika
+                ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());//czytanie przychodzących danych jako bajty
+                ObjectInputStream is = new ObjectInputStream(bis);
+                Rescuer rescuer = (Rescuer) is.readObject();//konwersja bajtów na obiekt rescuer
 
+                StringBuilder sb = new StringBuilder();
+                sb.append("Nawiązano połączenie z ratownikiem: ");
+                sb.append(rescuer.toString());
+                printToLogWithTimestamp(sb.toString());
 
+                TextView t = findViewById(R.id.classification_system_val);
+                String classSystem = t.getText().toString();
+                Payload p = Payload.fromBytes(classSystem.getBytes());
+                connectionsClient.sendPayload(s, p);//wysłanie informacji o systemie klasyfikacji
+                return;
+            } catch (Exception exception){ } //nastąpił błąd konwersji
+
+            try {//próba interpretacji jako połączenie od czujnika
                 ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
                 ObjectInputStream is = new ObjectInputStream(bis);
                 Triplet<String, Rescuer, Victim> data = (Triplet<String, Rescuer, Victim>) is.readObject();
@@ -112,9 +128,27 @@ public class MainActivity extends AppCompatActivity {
                         victims.add(newRow);
                         updateVictimsData();
                         customAdapter.notifyDataSetChanged();
+
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("Aktualizacja danych od czujnika: IMEI=");
+                        sb.append(newRow.getValue0());
+                        sb.append("; Zaktualizowane dane: ");
+                        sb.append(newRow.getValue2().toString());
+                        printToLogWithTimestamp(sb.toString());
+
                         return;
                     }
                 }
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("Nowy poszkodowany: IMEI czujnika=");
+                sb.append(data.getValue0());
+                sb.append("; Ratownik: ");
+                sb.append(data.getValue1().toString());
+                sb.append("; Dane poszkodowanego: ");
+                sb.append(data.getValue2().toString());
+                printToLogWithTimestamp(sb.toString());
+
                 victims.add(data);
                 updateVictimsData();
                 customAdapter.notifyDataSetChanged();
@@ -162,9 +196,13 @@ public class MainActivity extends AppCompatActivity {
 
         //wypełnienie menu wyboru systemu do triage
         Spinner dropdown = findViewById(R.id.classification_system_choice);
-        triageSystems = new String[]{"START/JumpSTART", "TRTS", "ISS", "BTTR"};
+        triageSystems = new String[]{"START/JumpSTART", "System2", "System3", "System4"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, triageSystems);
         dropdown.setAdapter(adapter); dropdown.getSelectedItem().toString();
+
+        Date d = Calendar.getInstance().getTime();
+        DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd_kkmmss");
+        log_filename = dateFormat.format(d)+".txt";
 
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -260,6 +298,7 @@ public class MainActivity extends AppCompatActivity {
                 vf.setDisplayedChild(1);
                 return true;
             case R.id.action_settings:
+                updateSettings();
                 vf.setDisplayedChild(2);
                 return true;
             default:
@@ -273,7 +312,7 @@ public class MainActivity extends AppCompatActivity {
     private void startAdvertising() {
         //Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT).show();
         AdvertisingOptions advertisingOptions =
-                new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_STAR).build();
+                new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
         connectionsClient = Nearby.getConnectionsClient(getApplicationContext());
         connectionsClient.startAdvertising(
                 "Kierujacy Akcja Medyczna", SERVICE_ID, communicationCallbacks, advertisingOptions)
@@ -329,5 +368,22 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void printToLogWithTimestamp(String message){
+        Date d = Calendar.getInstance().getTime();
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd kk:mm:ss");
+        String timestamp = dateFormat.format(d);
+        message = message.replace("\r\n", " ").replace("\n", " ");
+        String line = timestamp+": "+message+"\n";
+        try {
+            File folder = getApplicationContext(). getExternalFilesDir(null);
+            File log = new File(folder, log_filename);
 
+            FileOutputStream outputStream;
+            outputStream = new FileOutputStream(log, true); //openFileOutput(log_filename, Context.MODE_APPEND);
+            outputStream.write(line.getBytes());
+            outputStream.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
