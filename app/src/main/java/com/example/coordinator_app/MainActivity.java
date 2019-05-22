@@ -29,19 +29,24 @@ import android.widget.ViewFlipper;
 import java.io.ByteArrayInputStream;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.*;
+import com.triage.model.Rescuer;
 import com.triage.model.Victim;
+
+import org.javatuples.Triplet;
 
 public class MainActivity extends AppCompatActivity {
 
-    ArrayList<Victim> victims = new ArrayList<>();
+    ArrayList<Triplet<String, Rescuer, Victim>> victims = new ArrayList<>();
     CustomAdapter customAdapter;
     String[] triageSystems;
-    String serviceID = "com.example.coordinator_app";
+    final String SERVICE_ID = "triage.simulator-rescuer";
     ConnectionsClient connectionsClient;
+    private boolean advertising = false;
 
     private static final String[] REQUIRED_PERMISSIONS =
             new String[]{
@@ -86,18 +91,31 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onPayloadReceived(String s, Payload payload) {
             try {
+                /*
                 if(payload.asBytes().toString().equals("Send Nudes")){
                     TextView t = findViewById(R.id.classification_system_val);
                     String classSystem = t.getText().toString();
                     Payload p = Payload.fromBytes(classSystem.getBytes());
                     connectionsClient.sendPayload(s, p);
                     return;
-                }
+                }*/
+
 
                 ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
                 ObjectInputStream is = new ObjectInputStream(bis);
-                Victim v = (Victim) is.readObject();
-                victims.add(v);
+                Triplet<String, Rescuer, Victim> data = (Triplet<String, Rescuer, Victim>) is.readObject();
+                data.getValue2().calculateColor();
+                for(Triplet<String, Rescuer, Victim> row : victims){
+                    if(row.getValue0().equals(data.getValue0())){
+                        Triplet<String, Rescuer, Victim> newRow = row.setAt2(data.getValue2());
+                        victims.remove(row);
+                        victims.add(newRow);
+                        updateVictimsData();
+                        customAdapter.notifyDataSetChanged();
+                        return;
+                    }
+                }
+                victims.add(data);
                 updateVictimsData();
                 customAdapter.notifyDataSetChanged();
             } catch (Exception e){
@@ -154,14 +172,16 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Toast.makeText(getApplicationContext(), "Losowa generacja pacjenta", Toast.LENGTH_SHORT ).show();
                 Random r = new Random();
-                long imei = r.nextLong()%1000000000000000L;
                 boolean b = r.nextBoolean();
                 int rate = r.nextInt(40) + 10;
                 float capRefillTime = r.nextFloat()*3f + 0.5f;
                 boolean w = r.nextBoolean();
                 Victim.AVPU c = Victim.AVPU.values()[r.nextInt(Victim.AVPU.values().length)];
-                Victim randomVictim = new Victim(imei, b, rate, capRefillTime, w, c);
-                victims.add(randomVictim);
+                Victim randomVictim = new Victim(b, rate, capRefillTime, w, c);
+
+                Rescuer rescuer = new Rescuer("0", "test");
+                Triplet<String, Rescuer, Victim> newRow = new Triplet<String, Rescuer, Victim>("", rescuer, randomVictim);
+                victims.add(newRow);
                 updateVictimsData();
                 customAdapter.notifyDataSetChanged();
             }
@@ -171,7 +191,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent intent = new Intent(getApplicationContext(), VictimDetailsActivity.class);
-                intent.putExtra("victim", (Parcelable) victims.get(position)); //sending victim data to new activity
+                intent.putExtra("victim", (Parcelable) victims.get(position).getValue2()); //sending victim data to new activity
                 startActivity(intent);
             }
         });
@@ -192,7 +212,32 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        TextView t = findViewById(R.id.reset_transmitter);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(advertising){
+                    Nearby.getConnectionsClient(getApplicationContext()).stopAdvertising();
+                }
+                startAdvertising();
+                updateSettings();
+            }
+        });
 
+        t = findViewById(R.id.clear_endpoints);
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Nearby.getConnectionsClient(getApplicationContext()).stopAllEndpoints();
+            }
+        });
+
+    }
+
+
+    public void updateSettings(){
+        TextView t = findViewById(R.id.transmitter_status_label);
+        t.setText( advertising ? "czeka na połączenia" : "bezczynny");
     }
 
     @Override
@@ -211,14 +256,11 @@ public class MainActivity extends AppCompatActivity {
 
         ViewFlipper vf = findViewById(R.id.layout_manager);
         switch(id){
-            case R.id.action_bt:
+            case R.id.action_victims:
                 vf.setDisplayedChild(1);
                 return true;
-            case R.id.action_victims:
+            case R.id.action_settings:
                 vf.setDisplayedChild(2);
-                return true;
-            case R.id.action_rescuers:
-                vf.setDisplayedChild(3);
                 return true;
             default:
                 vf.setDisplayedChild(0);
@@ -231,13 +273,14 @@ public class MainActivity extends AppCompatActivity {
     private void startAdvertising() {
         //Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT).show();
         AdvertisingOptions advertisingOptions =
-                new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
+                new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_STAR).build();
         connectionsClient = Nearby.getConnectionsClient(getApplicationContext());
         connectionsClient.startAdvertising(
-                        "Kierujacy Akcja Medyczna", serviceID, communicationCallbacks, advertisingOptions)
+                "Kierujacy Akcja Medyczna", SERVICE_ID, communicationCallbacks, advertisingOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
                             Toast.makeText(getApplicationContext(), "Startujemy nadawanie", Toast.LENGTH_SHORT).show();
+                            advertising = true;
                         })
                 .addOnFailureListener(
                         (Exception e) -> {
@@ -246,7 +289,6 @@ public class MainActivity extends AppCompatActivity {
                         });
     }
 
-    /** Called when our Activity has been made visible to the user. */
     @Override
     protected void onStart() {
         super.onStart();
@@ -269,7 +311,8 @@ public class MainActivity extends AppCompatActivity {
 
     public void updateVictimsData(){
         int b=0, r=0, y=0, g=0;
-        for(Victim v : victims){
+        for(Triplet<String, Rescuer, Victim> row : victims){
+            Victim v = row.getValue2();
             switch(v.getColor()){
                 case BLACK: b++; break;
                 case RED: r++; break;

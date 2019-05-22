@@ -8,20 +8,24 @@ import java.io.Serializable;
 //klasa reprezentująca poszkodowanego rozszerzona o
 //interfejs pozwalający na przesyłanie obiektu między aktywnościami
 public class Victim implements Parcelable, Serializable {
+    private static final long serialVersionUID = 186362213453111235L;
 
     public enum TriageColor{ BLACK, RED, YELLOW, GREEN }
     public enum AVPU{ AWAKE, VERBAL, PAIN, UNRESPONSIVE }
 
-    private long transmitterIMEI;
+    private static int totalID = 0;
+
+    private boolean changingState;
+    private long id;
     private boolean breathing;
-    private int respiratoryRate;
+    private float respiratoryRate;
     private float capillaryRefillTime;
     private boolean walking;
     private TriageColor color;
     private AVPU consciousness;
 
-    public Victim(long transmitterIMEI, boolean breathing, int respiratoryRate, float capillaryRefillTime, boolean walking, AVPU consciousness) {
-        this.transmitterIMEI = transmitterIMEI;
+    public Victim(boolean breathing, float respiratoryRate, float capillaryRefillTime, boolean walking, AVPU consciousness) {
+        this.id = totalID; totalID++;
         this.breathing = breathing;
         this.respiratoryRate = respiratoryRate;
         this.capillaryRefillTime = capillaryRefillTime;
@@ -30,10 +34,12 @@ public class Victim implements Parcelable, Serializable {
         calculateColor();
     }
 
-    protected Victim(Parcel in) {
-        transmitterIMEI = in.readLong();
+    public Victim() {
+        this.id = totalID; totalID++;
+    }protected Victim(Parcel in) {
+        id = in.readLong();
         breathing = (boolean)in.readValue(null);
-        respiratoryRate = in.readInt();
+        respiratoryRate = in.readFloat();
         capillaryRefillTime = in.readFloat();
         walking = (boolean)in.readValue(null);
         color = (TriageColor)in.readValue(null);
@@ -80,12 +86,12 @@ public class Victim implements Parcelable, Serializable {
         color = TriageColor.YELLOW;
     }
 
-    public long getTransmitterIMEI() {
-        return transmitterIMEI;
+    public long getId() {
+        return id;
     }
 
-    public void setTransmitterIMEI(long transmitterIMEI) {
-        this.transmitterIMEI = transmitterIMEI;
+    public void setId(long id) {
+        this.id = id;
     }
 
     public boolean isBreathing() {
@@ -96,11 +102,11 @@ public class Victim implements Parcelable, Serializable {
         this.breathing = breathing;
     }
 
-    public int getRespiratoryRate() {
+    public float getRespiratoryRate() {
         return respiratoryRate;
     }
 
-    public void setRespiratoryRate(int respiratoryRate) {
+    public void setRespiratoryRate(float respiratoryRate) {
         this.respiratoryRate = respiratoryRate;
     }
 
@@ -144,9 +150,9 @@ public class Victim implements Parcelable, Serializable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeLong(transmitterIMEI);
+        dest.writeLong(id);
         dest.writeValue(breathing);
-        dest.writeInt(respiratoryRate);
+        dest.writeFloat(respiratoryRate);
         dest.writeFloat(capillaryRefillTime);
         dest.writeValue(walking);
         dest.writeValue(color);

@@ -3,6 +3,6 @@
     <string name="action_dashboard">Panel główny</string>
     <string name="action_bt">Ust. komunikacji</string>
     <string name="action_victims">Poszkodowani</string>
-    <string name="action_rescuers">Ratownicy</string>
+    <string name="action_settings">Ustawienia</string>
 
 </resources>

@@ -8,17 +8,20 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.triage.model.Rescuer;
 import com.triage.model.Victim;
+
+import org.javatuples.Triplet;
 
 import java.util.ArrayList;
 
 //klasa służąca do wyświetlania obiektów Victim w widoku ListView
 public class CustomAdapter extends BaseAdapter {
     private Context context;
-    private ArrayList<Victim> victimList;
+    private ArrayList<Triplet<String, Rescuer, Victim>> victimList;
     private LayoutInflater inflater;
 
-    public CustomAdapter(Context applicationContext, ArrayList<Victim> victimList) {
+    public CustomAdapter(Context applicationContext, ArrayList<Triplet<String, Rescuer, Victim>> victimList) {
         this.context = applicationContext;
         this.victimList = victimList;
         inflater = (LayoutInflater.from(applicationContext));
@@ -44,8 +47,8 @@ public class CustomAdapter extends BaseAdapter {
         view = inflater.inflate(R.layout.victim_activity_listview, null);
         TextView imei = (TextView) view.findViewById(R.id.textView);
         ImageView icon = (ImageView) view.findViewById(R.id.icon);
-        imei.setText("IMEI: "+String.format("%015d", victimList.get(i).getTransmitterIMEI()));
-        switch(victimList.get(i).getColor()){
+        imei.setText("IMEI: "+String.format("%s", victimList.get(i).getValue0()));
+        switch(victimList.get(i).getValue2().getColor()){
             case BLACK: icon.setImageResource(R.color.colorTriageBlack); break;
             case RED: icon.setImageResource(R.color.colorTriageRed); break;
             case YELLOW: icon.setImageResource(R.color.colorTriageYellow); break;
