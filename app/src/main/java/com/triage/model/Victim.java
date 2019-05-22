@@ -36,7 +36,9 @@ public class Victim implements Parcelable, Serializable {
 
     public Victim() {
         this.id = totalID; totalID++;
-    }protected Victim(Parcel in) {
+    }
+
+    protected Victim(Parcel in) {
         id = in.readLong();
         breathing = (boolean)in.readValue(null);
         respiratoryRate = in.readFloat();
@@ -157,5 +159,39 @@ public class Victim implements Parcelable, Serializable {
         dest.writeValue(walking);
         dest.writeValue(color);
         dest.writeValue(consciousness);
+    }
+
+    @Override
+    public String toString(){
+        StringBuilder sb = new StringBuilder();
+        sb.append("Kolor: ");
+        switch(color){
+            case BLACK:  sb.append("czarny");   break;
+            case RED:    sb.append("czerwony"); break;
+            case YELLOW: sb.append("żółty");    break;
+            case GREEN:  sb.append("zielony");  break;
+        }
+
+        sb.append(", Oddycha: ");
+        sb.append(breathing ? "tak" : "nie");
+
+        sb.append(", Częst. oddechów: ");
+        sb.append(respiratoryRate);
+
+        sb.append("odd/min, Nawrót Kapilarny: ");
+        sb.append(capillaryRefillTime);
+
+        sb.append("s, chodzi: ");
+        sb.append(walking ? "tak" : "nie");
+
+        sb.append(", AVPU: ");
+        switch(consciousness){
+            case AWAKE: sb.append("przytomny"); break;
+            case VERBAL: sb.append("reag. na głos"); break;
+            case PAIN: sb.append("reag. na ból"); break;
+            case UNRESPONSIVE: sb.append("nieprzytomny"); break;
+        }
+
+        return sb.toString();
     }
 }

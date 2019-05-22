@@ -31,4 +31,15 @@ public class Rescuer implements Serializable {
     public void setName(String name) {
         this.name = name;
     }
+
+    @Override
+    public String toString(){
+        StringBuilder sb = new StringBuilder();
+        sb.append("ID=");
+        sb.append(this.getName());
+        sb.append(", IMEI=");
+        sb.append(this.getId());
+
+        return sb.toString();
+    }
 }
