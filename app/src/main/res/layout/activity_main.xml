@@ -39,6 +39,10 @@
             android:id="@+id/include_settings"
             layout="@layout/settings_content" />
 
+        <include
+            android:id="@+id/open_map"
+            layout="@layout/activity_map" />
+
 
     </ViewFlipper>
     <!--

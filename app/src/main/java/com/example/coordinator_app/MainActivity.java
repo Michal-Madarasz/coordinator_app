@@ -301,6 +301,8 @@ public class MainActivity extends AppCompatActivity {
                 updateSettings();
                 vf.setDisplayedChild(2);
                 return true;
+            case R.id.open_map:
+                vf.setDisplayedChild(3);
             default:
                 vf.setDisplayedChild(0);
         }

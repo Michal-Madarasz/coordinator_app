@@ -13,8 +13,12 @@
         android:title="@string/action_victims" />
 
     <item
-        android:id="@+id/action_settings"
+        android:id="@+id/open_map"
         android:orderInCategory="4"
+        android:title="Mapa miejsca zdarzenia" />
+    <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="5"
         android:title="@string/action_settings" />
 
 
