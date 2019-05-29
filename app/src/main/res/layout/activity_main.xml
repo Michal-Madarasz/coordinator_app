@@ -45,9 +45,6 @@
 
 
     </ViewFlipper>
-    <!--
-    <include
-        android:id="@+id/displayed_layout"
-        layout="@layout/dashboard_content_main" /> -->
+
 
 </android.support.design.widget.CoordinatorLayout>

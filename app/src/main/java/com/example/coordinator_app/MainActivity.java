@@ -303,6 +303,7 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             case R.id.open_map:
                 vf.setDisplayedChild(3);
+                return true;
             default:
                 vf.setDisplayedChild(0);
         }
