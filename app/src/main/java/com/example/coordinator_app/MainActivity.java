@@ -1,9 +1,11 @@
 package com.example.coordinator_app;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -20,6 +22,7 @@ import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Spinner;
@@ -29,7 +32,10 @@ import android.widget.ViewFlipper;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -50,9 +56,8 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<Triplet<String, Rescuer, Victim>> victims = new ArrayList<>();
     CustomAdapter customAdapter;
     String[] triageSystems;
-    final String SERVICE_ID = "triage.simulator-rescuer";
+    final String SERVICE_ID = "triage.communication";
     String log_filename;
-    ConnectionsClient connectionsClient;
     private boolean advertising = false;
 
     private static final String[] REQUIRED_PERMISSIONS =
@@ -69,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
     ConnectionLifecycleCallback communicationCallbacks = new ConnectionLifecycleCallback() {
         @Override
         public void onConnectionInitiated(String s, ConnectionInfo connectionInfo) {
-            connectionsClient.acceptConnection(s, payloadReceiver);
+            Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(s, payloadReceiver);
             Toast.makeText(getApplicationContext(), "Wykryto "+s, Toast.LENGTH_SHORT).show();
         }
 
@@ -112,7 +117,13 @@ public class MainActivity extends AppCompatActivity {
                 TextView t = findViewById(R.id.classification_system_val);
                 String classSystem = t.getText().toString();
                 Payload p = Payload.fromBytes(classSystem.getBytes());
-                connectionsClient.sendPayload(s, p);//wysłanie informacji o systemie klasyfikacji
+                Nearby.getConnectionsClient(getApplicationContext()).sendPayload(s, p)//wysłanie informacji o systemie klasyfikacji
+                    .addOnSuccessListener((Void v) ->{
+                        Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(s);
+                    })
+                    .addOnFailureListener((Exception e) ->{
+                        Log.e("Payload", e.getMessage());
+                    });
                 return;
             } catch (Exception exception){ } //nastąpił błąd konwersji
 
@@ -120,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
                 ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
                 ObjectInputStream is = new ObjectInputStream(bis);
                 Triplet<String, Rescuer, Victim> data = (Triplet<String, Rescuer, Victim>) is.readObject();
-                data.getValue2().calculateColor();
                 for(Triplet<String, Rescuer, Victim> row : victims){
                     if(row.getValue0().equals(data.getValue0())){
                         Triplet<String, Rescuer, Victim> newRow = row.setAt2(data.getValue2());
@@ -196,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
 
         //wypełnienie menu wyboru systemu do triage
         Spinner dropdown = findViewById(R.id.classification_system_choice);
-        triageSystems = new String[]{"START/JumpSTART", "System2", "System3", "System4"};
+        triageSystems = new String[]{"START", "CareFlight", "SIEVE"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, triageSystems);
         dropdown.setAdapter(adapter); dropdown.getSelectedItem().toString();
 
@@ -238,15 +248,15 @@ public class MainActivity extends AppCompatActivity {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Spinner spnr = findViewById(R.id.classification_system_choice);
-                int id = (int)spnr.getSelectedItemId();
-                switch(id){
-                    case 0:
-                        TextView t = findViewById(R.id.classification_system_val); t.setText("START");
-                        break;
-                    default:
-                        Toast.makeText(getApplicationContext(), "Wybrany system nie jest aktualnie zaimplementowany", Toast.LENGTH_SHORT).show();
+                if(advertising){
+                    Toast.makeText(getApplicationContext(), "Akcja rozpoczęta, nie można wystartować ponownie", Toast.LENGTH_SHORT).show();
+                    return;
                 }
+                Spinner spnr = findViewById(R.id.classification_system_choice);
+                String system = (String)spnr.getSelectedItem();
+                TextView t = findViewById(R.id.classification_system_val); t.setText(system);
+                startAdvertising();
+                view.setAlpha(.4f);
             }
         });
 
@@ -313,8 +323,7 @@ public class MainActivity extends AppCompatActivity {
         //Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT).show();
         AdvertisingOptions advertisingOptions =
                 new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
-        connectionsClient = Nearby.getConnectionsClient(getApplicationContext());
-        connectionsClient.startAdvertising(
+        Nearby.getConnectionsClient(getApplicationContext()).startAdvertising(
                 "Kierujacy Akcja Medyczna", SERVICE_ID, communicationCallbacks, advertisingOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
@@ -341,7 +350,109 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-        startAdvertising();
+        //startAdvertising();
+
+        if (isLoggedIn()) {
+            Toast.makeText(getApplicationContext(), "Zalogowany", Toast.LENGTH_SHORT).show();
+            Log.e("Login", "Zalogowany");
+        } else {
+            AlertDialog.Builder mBuilder = new AlertDialog.Builder(MainActivity.this);
+            View mView = getLayoutInflater().inflate(R.layout.dialog_login, null);
+            final EditText mId = (EditText) mView.findViewById(R.id.etId);
+            final EditText mPassword = (EditText) mView.findViewById(R.id.etPassword);
+            Button mLogin = (Button) mView.findViewById(R.id.login_button);
+
+
+            mBuilder.setView(mView);
+            mBuilder.setCancelable(false);
+            final AlertDialog dialog = mBuilder.create();
+            dialog.show();
+
+
+            String filename = "last_login.txt";
+
+            mLogin.setOnClickListener(v -> {
+                if (!mId.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty()) {
+                    Toast.makeText(MainActivity.this,
+                            "Zalogowano",
+                            Toast.LENGTH_SHORT).show();
+
+                    //zapis do pliku login, hasło, czas w sekundach
+                    try {
+                        FileOutputStream stream = openFileOutput(filename, Context.MODE_PRIVATE);
+                        Date date = new Date();
+
+                        String login = mId.getText().toString() + "\n" +
+                                mPassword.getText().toString() + "\n" +
+                                date.getTime() + "\n";
+
+                        Log.e("Zapis", login);
+                        stream.write(login.getBytes());
+                        stream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    dialog.dismiss();
+
+                } else {
+                    Toast.makeText(MainActivity.this,
+                            "Wypełnij pola",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    //sprawdzenie czy uzytkownik nie był wczesniej zalogowany
+    //chyba nie do konca dziala, nie wiadomo dlaczego
+    private boolean isLoggedIn() {
+        String path = getApplicationContext().getFilesDir() + "/" + "last_login.txt";
+        File file = new File(path);
+        int length = (int) file.length();
+
+
+        //jakie pliki dostepne
+        File dirFiles = getApplicationContext().getFilesDir();
+        for (String fname: dirFiles.list())
+        {
+            Log.e("Pliki", fname);
+        }
+
+
+        byte[] bytes = new byte[length];
+
+
+        if (file.exists()) {
+            try {
+                FileInputStream in = new FileInputStream(file);
+                in.read(bytes);
+                in.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            String contents = new String(bytes);
+            Log.e("isLoggedIn", contents);
+
+            String[] content_tab = contents.split("\n");
+            long oldTime = Long.parseLong(content_tab[2]);
+            Date newTime = new Date();
+
+            if (oldTime - newTime.getTime() > 4*60*60) {
+                Log.e("Czas","Przekroczono czas");
+                return false;
+            }
+
+            return true;
+        } else {
+            Log.e("isLoggedIn", "brak pliku");
+
+            return false;
+        }
+
+
     }
 
     protected String[] getRequiredPermissions() {

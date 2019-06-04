@@ -9,6 +9,8 @@ import android.widget.TextView;
 
 import com.triage.model.Victim;
 
+import org.w3c.dom.Text;
+
 public class VictimDetailsActivity extends AppCompatActivity {
 
     Victim victim;
@@ -24,11 +26,7 @@ public class VictimDetailsActivity extends AppCompatActivity {
         victim = intent.getParcelableExtra("victim");
         setTitle("Info o poszkodowanym");
 
-        TextView t;
-        t = findViewById(R.id.IMEI_val);
-        t.setText(String.format("%015d", victim.getId()));
-
-        t = findViewById(R.id.breath_val);
+        TextView t = findViewById(R.id.breath_val);
         if(victim.isBreathing())
             t.setText("tak");
         else
