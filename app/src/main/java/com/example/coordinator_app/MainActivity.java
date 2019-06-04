@@ -131,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
                 ByteArrayInputStream bis = new ByteArrayInputStream(payload.asBytes());
                 ObjectInputStream is = new ObjectInputStream(bis);
                 Triplet<String, Rescuer, Victim> data = (Triplet<String, Rescuer, Victim>) is.readObject();
-                data.getValue2().calculateColor();
                 for(Triplet<String, Rescuer, Victim> row : victims){
                     if(row.getValue0().equals(data.getValue0())){
                         Triplet<String, Rescuer, Victim> newRow = row.setAt2(data.getValue2());
