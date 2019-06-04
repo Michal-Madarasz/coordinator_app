@@ -1,6 +1,7 @@
 package com.example.coordinator_app;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -21,6 +22,7 @@ import android.view.MenuItem;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Spinner;
@@ -30,7 +32,10 @@ import android.widget.ViewFlipper;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -347,6 +352,108 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         //startAdvertising();
+
+        if (isLoggedIn()) {
+            Toast.makeText(getApplicationContext(), "Zalogowany", Toast.LENGTH_SHORT).show();
+            Log.e("Login", "Zalogowany");
+        } else {
+            AlertDialog.Builder mBuilder = new AlertDialog.Builder(MainActivity.this);
+            View mView = getLayoutInflater().inflate(R.layout.dialog_login, null);
+            final EditText mId = (EditText) mView.findViewById(R.id.etId);
+            final EditText mPassword = (EditText) mView.findViewById(R.id.etPassword);
+            Button mLogin = (Button) mView.findViewById(R.id.login_button);
+
+
+            mBuilder.setView(mView);
+            mBuilder.setCancelable(false);
+            final AlertDialog dialog = mBuilder.create();
+            dialog.show();
+
+
+            String filename = "last_login.txt";
+
+            mLogin.setOnClickListener(v -> {
+                if (!mId.getText().toString().isEmpty() && !mPassword.getText().toString().isEmpty()) {
+                    Toast.makeText(MainActivity.this,
+                            "Zalogowano",
+                            Toast.LENGTH_SHORT).show();
+
+                    //zapis do pliku login, hasło, czas w sekundach
+                    try {
+                        FileOutputStream stream = openFileOutput(filename, Context.MODE_PRIVATE);
+                        Date date = new Date();
+
+                        String login = mId.getText().toString() + "\n" +
+                                mPassword.getText().toString() + "\n" +
+                                date.getTime() + "\n";
+
+                        Log.e("Zapis", login);
+                        stream.write(login.getBytes());
+                        stream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    dialog.dismiss();
+
+                } else {
+                    Toast.makeText(MainActivity.this,
+                            "Wypełnij pola",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    //sprawdzenie czy uzytkownik nie był wczesniej zalogowany
+    //chyba nie do konca dziala, nie wiadomo dlaczego
+    private boolean isLoggedIn() {
+        String path = getApplicationContext().getFilesDir() + "/" + "last_login.txt";
+        File file = new File(path);
+        int length = (int) file.length();
+
+
+        //jakie pliki dostepne
+        File dirFiles = getApplicationContext().getFilesDir();
+        for (String fname: dirFiles.list())
+        {
+            Log.e("Pliki", fname);
+        }
+
+
+        byte[] bytes = new byte[length];
+
+
+        if (file.exists()) {
+            try {
+                FileInputStream in = new FileInputStream(file);
+                in.read(bytes);
+                in.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            String contents = new String(bytes);
+            Log.e("isLoggedIn", contents);
+
+            String[] content_tab = contents.split("\n");
+            long oldTime = Long.parseLong(content_tab[2]);
+            Date newTime = new Date();
+
+            if (oldTime - newTime.getTime() > 4*60*60) {
+                Log.e("Czas","Przekroczono czas");
+                return false;
+            }
+
+            return true;
+        } else {
+            Log.e("isLoggedIn", "brak pliku");
+
+            return false;
+        }
+
+
     }
 
     protected String[] getRequiredPermissions() {
