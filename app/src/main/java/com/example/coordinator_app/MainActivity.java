@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -50,9 +51,8 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<Triplet<String, Rescuer, Victim>> victims = new ArrayList<>();
     CustomAdapter customAdapter;
     String[] triageSystems;
-    final String SERVICE_ID = "triage.simulator-rescuer";
+    final String SERVICE_ID = "triage.communication";
     String log_filename;
-    ConnectionsClient connectionsClient;
     private boolean advertising = false;
 
     private static final String[] REQUIRED_PERMISSIONS =
@@ -69,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
     ConnectionLifecycleCallback communicationCallbacks = new ConnectionLifecycleCallback() {
         @Override
         public void onConnectionInitiated(String s, ConnectionInfo connectionInfo) {
-            connectionsClient.acceptConnection(s, payloadReceiver);
+            Nearby.getConnectionsClient(getApplicationContext()).acceptConnection(s, payloadReceiver);
             Toast.makeText(getApplicationContext(), "Wykryto "+s, Toast.LENGTH_SHORT).show();
         }
 
@@ -112,7 +112,13 @@ public class MainActivity extends AppCompatActivity {
                 TextView t = findViewById(R.id.classification_system_val);
                 String classSystem = t.getText().toString();
                 Payload p = Payload.fromBytes(classSystem.getBytes());
-                connectionsClient.sendPayload(s, p);//wysłanie informacji o systemie klasyfikacji
+                Nearby.getConnectionsClient(getApplicationContext()).sendPayload(s, p)//wysłanie informacji o systemie klasyfikacji
+                    .addOnSuccessListener((Void v) ->{
+                        Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(s);
+                    })
+                    .addOnFailureListener((Exception e) ->{
+                        Log.e("Payload", e.getMessage());
+                    });
                 return;
             } catch (Exception exception){ } //nastąpił błąd konwersji
 
@@ -196,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
 
         //wypełnienie menu wyboru systemu do triage
         Spinner dropdown = findViewById(R.id.classification_system_choice);
-        triageSystems = new String[]{"START/JumpSTART", "System2", "System3", "System4"};
+        triageSystems = new String[]{"START", "CareFlight", "SIEVE"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, triageSystems);
         dropdown.setAdapter(adapter); dropdown.getSelectedItem().toString();
 
@@ -238,15 +244,15 @@ public class MainActivity extends AppCompatActivity {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Spinner spnr = findViewById(R.id.classification_system_choice);
-                int id = (int)spnr.getSelectedItemId();
-                switch(id){
-                    case 0:
-                        TextView t = findViewById(R.id.classification_system_val); t.setText("START");
-                        break;
-                    default:
-                        Toast.makeText(getApplicationContext(), "Wybrany system nie jest aktualnie zaimplementowany", Toast.LENGTH_SHORT).show();
+                if(advertising){
+                    Toast.makeText(getApplicationContext(), "Akcja rozpoczęta, nie można wystartować ponownie", Toast.LENGTH_SHORT).show();
+                    return;
                 }
+                Spinner spnr = findViewById(R.id.classification_system_choice);
+                String system = (String)spnr.getSelectedItem();
+                TextView t = findViewById(R.id.classification_system_val); t.setText(system);
+                startAdvertising();
+                view.setAlpha(.4f);
             }
         });
 
@@ -313,8 +319,7 @@ public class MainActivity extends AppCompatActivity {
         //Toast.makeText(getApplicationContext(), "Startujemy", Toast.LENGTH_SHORT).show();
         AdvertisingOptions advertisingOptions =
                 new AdvertisingOptions.Builder().setStrategy(Strategy.P2P_CLUSTER).build();
-        connectionsClient = Nearby.getConnectionsClient(getApplicationContext());
-        connectionsClient.startAdvertising(
+        Nearby.getConnectionsClient(getApplicationContext()).startAdvertising(
                 "Kierujacy Akcja Medyczna", SERVICE_ID, communicationCallbacks, advertisingOptions)
                 .addOnSuccessListener(
                         (Void unused) -> {
@@ -341,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
-        startAdvertising();
+        //startAdvertising();
     }
 
     protected String[] getRequiredPermissions() {
