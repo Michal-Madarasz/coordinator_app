@@ -14,6 +14,7 @@ import org.w3c.dom.Text;
 public class VictimDetailsActivity extends AppCompatActivity {
 
     Victim victim;
+    String id="";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,9 +25,13 @@ public class VictimDetailsActivity extends AppCompatActivity {
 
         Intent intent = getIntent();
         victim = intent.getParcelableExtra("victim");
+        id = intent.getStringExtra("monitorID");
         setTitle("Info o poszkodowanym");
 
-        TextView t = findViewById(R.id.breath_val);
+        TextView t = findViewById(R.id.details_id_val);
+        t.setText(id);
+
+        t = findViewById(R.id.breath_val);
         if(victim.isBreathing())
             t.setText("tak");
         else
