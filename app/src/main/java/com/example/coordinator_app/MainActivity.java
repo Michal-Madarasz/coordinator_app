@@ -256,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
                 String system = (String)spnr.getSelectedItem();
                 TextView t = findViewById(R.id.classification_system_val); t.setText(system);
                 startAdvertising();
+                ((Button)view).setText("Akcja w toku");
                 view.setAlpha(.4f);
             }
         });
