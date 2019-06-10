@@ -59,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
     final String SERVICE_ID = "triage.communication";
     String log_filename;
     private boolean advertising = false;
+    private int lastChosenVictim = -1;
 
     private static final String[] REQUIRED_PERMISSIONS =
             new String[]{
@@ -119,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
                 Payload p = Payload.fromBytes(classSystem.getBytes());
                 Nearby.getConnectionsClient(getApplicationContext()).sendPayload(s, p)//wysłanie informacji o systemie klasyfikacji
                     .addOnSuccessListener((Void v) ->{
-                        Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(s);
+                        //Nearby.getConnectionsClient(getApplicationContext()).disconnectFromEndpoint(s);
                     })
                     .addOnFailureListener((Exception e) ->{
                         Log.e("Payload", e.getMessage());
@@ -214,32 +215,13 @@ public class MainActivity extends AppCompatActivity {
         DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd_kkmmss");
         log_filename = dateFormat.format(d)+".txt";
 
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Toast.makeText(getApplicationContext(), "Losowa generacja pacjenta", Toast.LENGTH_SHORT ).show();
-                Random r = new Random();
-                boolean b = r.nextBoolean();
-                int rate = r.nextInt(40) + 10;
-                float capRefillTime = r.nextFloat()*3f + 0.5f;
-                boolean w = r.nextBoolean();
-                Victim.AVPU c = Victim.AVPU.values()[r.nextInt(Victim.AVPU.values().length)];
-                Victim randomVictim = new Victim(b, rate, capRefillTime, w, c);
-
-                Rescuer rescuer = new Rescuer("0", "test");
-                Triplet<String, Rescuer, Victim> newRow = new Triplet<String, Rescuer, Victim>("", rescuer, randomVictim);
-                victims.add(newRow);
-                updateVictimsData();
-                customAdapter.notifyDataSetChanged();
-            }
-        });
-
         victimList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                lastChosenVictim = position;
                 Intent intent = new Intent(getApplicationContext(), VictimDetailsActivity.class);
                 intent.putExtra("victim", (Parcelable) victims.get(position).getValue2()); //sending victim data to new activity
+                intent.putExtra("monitorID", victims.get(position).getValue0());
                 startActivity(intent);
             }
         });
@@ -256,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
                 String system = (String)spnr.getSelectedItem();
                 TextView t = findViewById(R.id.classification_system_val); t.setText(system);
                 startAdvertising();
+                ((Button)view).setText("Akcja w toku");
                 view.setAlpha(.4f);
             }
         });
@@ -286,6 +269,10 @@ public class MainActivity extends AppCompatActivity {
     public void updateSettings(){
         TextView t = findViewById(R.id.transmitter_status_label);
         t.setText( advertising ? "czeka na połączenia" : "bezczynny");
+    }
+
+    private void updateVictimDetails(String id, Victim v){
+
     }
 
     @Override
